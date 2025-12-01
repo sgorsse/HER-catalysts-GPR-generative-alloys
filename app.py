@@ -184,9 +184,9 @@ if valid_comp and st.sidebar.button("Run Prediction"):
     st.subheader(f"Prediction for: {formula}")
     col1, col2 = st.columns(2)
     with col1:
-        st.metric("Onset Potential", f"{mu_onset:.3f} V", delta=f"σ = {sig_onset:.3f}", delta_color="off")
+        st.metric("Onset Potential", f"{mu_onset:.0f} mV", delta=f"σ = {sig_onset:.0f}", delta_color="off")
     with col2:
-        st.metric("Tafel Slope", f"{mu_tafel:.1f} mV/dec", delta=f"σ = {sig_tafel:.1f}", delta_color="off")
+        st.metric("Tafel Slope", f"{mu_tafel:.0f} mV/dec", delta=f"σ = {sig_tafel:.0f}", delta_color="off")
 
     # 5. Pareto Plotting
     st.markdown("### Pareto Front Visualization")
@@ -201,7 +201,7 @@ if valid_comp and st.sidebar.button("Run Prediction"):
                 fmt='o', color='#2ca02c', ecolor='black', capsize=4, 
                 markersize=12, markeredgecolor='black', label='Predicted Candidate', zorder=10)
     
-    ax.set_xlabel('Onset Potential (V)', fontsize=10, fontweight='bold')
+    ax.set_xlabel('Onset Potential (mV)', fontsize=10, fontweight='bold')
     ax.set_ylabel('Tafel Slope (mV dec⁻¹)', fontsize=10, fontweight='bold')
     ax.grid(True, linestyle=':', alpha=0.6)
     ax.legend(frameon=True)
