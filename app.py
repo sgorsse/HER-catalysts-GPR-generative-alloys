@@ -14,7 +14,7 @@ This application accompanies the publication. It allows for the prediction of **
 """)
 
 # --- 0. CUSTOM CLASSES (REQUIRED FOR UNPICKLING) ---
-# This class definition must match EXACTLY the one used during training
+# CRITICAL: This class definition must be present for joblib to load the model correctly.
 class CorrelationFilter(BaseEstimator, TransformerMixin):
     def __init__(self, threshold=0.90):
         self.threshold = threshold
@@ -35,7 +35,7 @@ class CorrelationFilter(BaseEstimator, TransformerMixin):
 @st.cache_resource
 def load_resources():
     try:
-        # The model will now find 'CorrelationFilter' in the current scope
+        # The model will now successfully find 'CorrelationFilter' in this script
         m_onset = joblib.load('model_onset.joblib')
         m_tafel = joblib.load('model_tafel.joblib')
         data = pd.read_csv('training_data.csv')
@@ -43,8 +43,8 @@ def load_resources():
     except FileNotFoundError:
         st.error("Critical Error: Model files (.joblib) or training data (.csv) are missing.")
         st.stop()
-    except AttributeError as e:
-        st.error(f"Model Loading Error: {e}. Checks that custom classes are defined.")
+    except Exception as e:
+        st.error(f"An error occurred while loading models: {e}")
         st.stop()
 
 model_onset, model_tafel, df_train = load_resources()
