@@ -119,12 +119,12 @@ current_total = 0
 for i in range(n_elems - 1):
     col1, col2 = st.sidebar.columns([1, 2])
     with col1:
-        # Default selection shifted to show different elements
+        # Default selection shifted
         default_idx = i if i < len(ALL_ELEMENTS) else 0
         el = st.selectbox(f"Element {i+1}", ALL_ELEMENTS, index=default_idx, key=f"el_{i}")
         selected_elems.append(el)
     with col2:
-        # Integer slider (step=1) for precise percentage adjustment
+        # Integer slider
         val = st.slider(f"Atomic % {el}", 0, 100, 0, step=1, key=f"fr_{i}")
         fractions.append(val / 100.0)
         current_total += val
@@ -139,7 +139,7 @@ with col1:
     selected_elems.append(el_last)
 
 with col2:
-    # Calculate remainder to reach exactly 100%
+    # Calculate remainder
     remainder = 100 - current_total
     
     if remainder < 0:
@@ -150,8 +150,13 @@ with col2:
         valid_comp = True
         final_val = remainder
     
-    # Visual feedback: Slider is disabled but shows the calculated value
-    st.slider(f"Atomic % {el_last}", 0, 100, final_val, disabled=True, key=f"fr_{i_last}")
+    # --- FIX: FORCE UPDATE SESSION STATE ---
+    # This ensures the visual slider moves even if it's disabled
+    key_last = f"fr_{i_last}"
+    st.session_state[key_last] = final_val
+    
+    # Display disabled slider linked to the updated state
+    st.slider(f"Atomic % {el_last}", 0, 100, disabled=True, key=key_last)
     fractions.append(final_val / 100.0)
 
 # --- 5. EXECUTION & VISUALIZATION ---
