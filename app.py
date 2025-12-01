@@ -9,12 +9,14 @@ from sklearn.base import BaseEstimator, TransformerMixin
 st.set_page_config(page_title="HER Catalyst Predictor", layout="wide")
 
 st.title("🔬 HER Electrocatalyst Predictor")
+
+# Updated Subtitle (Proofread & Completed)
 st.markdown("""
-This application accompanies the publication. It allows for the prediction of **Onset Potential** and **Tafel Slope** for multinary alloys (Ternary to Quinary) using the calibrated Gaussian Process Regressor (GPR) models.
+This application accompanies the publication. It allows for the prediction of **Onset Potential** and **Tafel Slope** for multinary alloys (Ternary to Quinary) using calibrated Gaussian Process Regressor (GPR) models. 
+These models were trained on an experimental dataset of 181 entries covering an elemental palette of 18 metals: **Ag, Al, Au, Co, Cr, Cu, Fe, Ir, Mg, Mn, Mo, Ni, Pd, Pt, Rh, Ru, W, and Zn**.
 """)
 
 # --- 0. CUSTOM CLASSES (REQUIRED FOR UNPICKLING) ---
-# CRITICAL: This class definition must be present for joblib to load the model correctly.
 class CorrelationFilter(BaseEstimator, TransformerMixin):
     def __init__(self, threshold=0.90):
         self.threshold = threshold
@@ -35,7 +37,6 @@ class CorrelationFilter(BaseEstimator, TransformerMixin):
 @st.cache_resource
 def load_resources():
     try:
-        # The model will now successfully find 'CorrelationFilter' in this script
         m_onset = joblib.load('model_onset.joblib')
         m_tafel = joblib.load('model_tafel.joblib')
         data = pd.read_csv('training_data.csv')
@@ -49,7 +50,7 @@ def load_resources():
 
 model_onset, model_tafel, df_train = load_resources()
 
-# --- 2. PHYSICAL CONSTANTS (PHYSICS-AWARE FEATURE GENERATION) ---
+# --- 2. PHYSICAL CONSTANTS ---
 ATOM_PROPS_STD = {
     'Number': {'Ag':47,'Al':13,'Au':79,'Co':27,'Cr':24,'Cu':29,'Fe':26,'Ir':77,'Mg':12,'Mn':25,'Mo':42,'Ni':28,'Pd':46,'Pt':78,'Rh':45,'Ru':44,'W':74,'Zn':30},
     'Electronegativity': {'Ag':1.93,'Al':1.61,'Au':2.54,'Co':1.88,'Cr':1.66,'Cu':1.90,'Fe':1.83,'Ir':2.20,'Mg':1.31,'Mn':1.55,'Mo':2.16,'Ni':1.91,'Pd':2.20,'Pt':2.28,'Rh':2.28,'Ru':2.20,'W':2.36,'Zn':1.65},
@@ -106,30 +107,52 @@ def gpr_predict(model, X_feat):
     sigma = sigma_z[0] * scale_factor
     return mu, sigma
 
-# --- 4. INPUT INTERFACE ---
+# --- 4. INPUT INTERFACE (SMART SLIDERS) ---
 st.sidebar.header("Alloy Composition")
 n_elems = st.sidebar.number_input("System Size (N Elements)", 3, 5, 3)
 
 selected_elems = []
 fractions = []
-total_frac = 0.0
+current_total = 0
 
-for i in range(n_elems):
+# A. Input loop for the first N-1 elements
+for i in range(n_elems - 1):
     col1, col2 = st.sidebar.columns([1, 2])
     with col1:
-        el = st.selectbox(f"Element {i+1}", ALL_ELEMENTS, index=i, key=f"el_{i}")
+        # Default selection shifted to show different elements
+        default_idx = i if i < len(ALL_ELEMENTS) else 0
+        el = st.selectbox(f"Element {i+1}", ALL_ELEMENTS, index=default_idx, key=f"el_{i}")
         selected_elems.append(el)
     with col2:
-        val = st.slider(f"Atomic % {el}", 0.0, 100.0, 0.0, key=f"fr_{i}")
+        # Integer slider (step=1) for precise percentage adjustment
+        val = st.slider(f"Atomic % {el}", 0, 100, 0, step=1, key=f"fr_{i}")
         fractions.append(val / 100.0)
-        total_frac += val
+        current_total += val
 
-if abs(total_frac - 100.0) > 1e-1:
-    st.sidebar.warning(f"Current Total: {total_frac:.1f}%. Composition must sum to 100%.")
-    valid_comp = False
-else:
-    st.sidebar.success("Valid Composition")
-    valid_comp = True
+# B. Auto-adjustment for the LAST element
+i_last = n_elems - 1
+col1, col2 = st.sidebar.columns([1, 2])
+
+with col1:
+    default_idx = i_last if i_last < len(ALL_ELEMENTS) else 0
+    el_last = st.selectbox(f"Element {n_elems} (Balance)", ALL_ELEMENTS, index=default_idx, key=f"el_{i_last}")
+    selected_elems.append(el_last)
+
+with col2:
+    # Calculate remainder to reach exactly 100%
+    remainder = 100 - current_total
+    
+    if remainder < 0:
+        st.error(f"Total is {current_total}%. Decrease previous sliders.")
+        valid_comp = False
+        final_val = 0
+    else:
+        valid_comp = True
+        final_val = remainder
+    
+    # Display as a disabled slider to visualize the proportion
+    st.slider(f"Atomic % {el_last}", 0, 100, final_val, disabled=True, key=f"fr_{i_last}")
+    fractions.append(final_val / 100.0)
 
 # --- 5. EXECUTION & VISUALIZATION ---
 if valid_comp and st.sidebar.button("Run Prediction"):
@@ -142,6 +165,7 @@ if valid_comp and st.sidebar.button("Run Prediction"):
     expected_features = [c for c in df_train.columns if "MagpieData" in c]
     X_input = compute_magpie_features(comp_dict, expected_features)
     
+    # Feature Alignment
     for c in expected_features:
         if c not in X_input.columns:
             X_input[c] = 0.0
@@ -162,13 +186,19 @@ if valid_comp and st.sidebar.button("Run Prediction"):
     # 5. Pareto Plotting
     st.markdown("### Pareto Front Visualization")
     fig, ax = plt.subplots(figsize=(8, 6))
+    
+    # Reference Data
     ax.scatter(df_train['onset_potential'], df_train['tafel_slope'], 
                c='#d62728', alpha=0.4, label='Experimental Data', s=40, marker='x')
+    
+    # Predicted Candidate
     ax.errorbar(mu_onset, mu_tafel, xerr=sig_onset, yerr=sig_tafel, 
                 fmt='o', color='#2ca02c', ecolor='black', capsize=4, 
                 markersize=12, markeredgecolor='black', label='Predicted Candidate', zorder=10)
+    
     ax.set_xlabel('Onset Potential (V)', fontsize=10, fontweight='bold')
     ax.set_ylabel('Tafel Slope (mV dec⁻¹)', fontsize=10, fontweight='bold')
     ax.grid(True, linestyle=':', alpha=0.6)
     ax.legend(frameon=True)
+    
     st.pyplot(fig)
