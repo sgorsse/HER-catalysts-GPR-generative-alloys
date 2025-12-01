@@ -10,7 +10,7 @@ st.set_page_config(page_title="HER Catalyst Predictor", layout="wide")
 
 st.title("🔬 HER Electrocatalyst Predictor")
 
-# Updated Subtitle (Proofread & Completed)
+# Subtitle
 st.markdown("""
 This application accompanies the publication. It allows for the prediction of **Onset Potential** and **Tafel Slope** for multinary alloys (Ternary to Quinary) using calibrated Gaussian Process Regressor (GPR) models. 
 These models were trained on an experimental dataset of 181 entries covering an elemental palette of 18 metals: **Ag, Al, Au, Co, Cr, Cu, Fe, Ir, Mg, Mn, Mo, Ni, Pd, Pt, Rh, Ru, W, and Zn**.
@@ -143,14 +143,14 @@ with col2:
     remainder = 100 - current_total
     
     if remainder < 0:
-        st.error(f"Total is {current_total}%. Decrease previous sliders.")
+        st.error(f"Total > 100% ({current_total}%). Reduce others.")
         valid_comp = False
         final_val = 0
     else:
         valid_comp = True
         final_val = remainder
     
-    # Display as a disabled slider to visualize the proportion
+    # Visual feedback: Slider is disabled but shows the calculated value
     st.slider(f"Atomic % {el_last}", 0, 100, final_val, disabled=True, key=f"fr_{i_last}")
     fractions.append(final_val / 100.0)
 
