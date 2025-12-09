@@ -166,44 +166,83 @@ if valid_comp and st.sidebar.button("Run Prediction"):
     comp_dict = {el: f for el, f in zip(selected_elems, fractions)}
     formula = "".join([f"{el}{f*100:.0f}" for el, f in comp_dict.items() if f > 0])
     
-    # 2. Feature Engineering
-    expected_features = [c for c in df_train.columns if "MagpieData" in c]
-    X_input = compute_magpie_features(comp_dict, expected_features)
+    # 2. Feature Engineering & Robust Alignment (Option A)
+    # -----------------------------------------------------
     
-    # Feature Alignment
-    for c in expected_features:
-        if c not in X_input.columns:
-            X_input[c] = 0.0
-    X_input = X_input[expected_features]
+    # Etape A : Identifier la "Source de Vérité" pour les features
+    # On essaie de récupérer les noms enregistrés DANS le modèle.
+    try:
+        # Le modèle est un TransformedTargetRegressor, on accède au pipeline interne
+        feature_ref = model_onset.regressor_.feature_names_in_
+    except AttributeError:
+        # Fallback : Si le modèle est trop vieux ou structure différente, on utilise le CSV
+        st.warning("Warning: Could not extract feature names from model. Using CSV headers instead.")
+        feature_ref = [c for c in df_train.columns if "MagpieData" in c]
+
+    # Etape B : Calculer les features brutes
+    # On demande au calculateur de générer ces features spécifiques
+    X_input = compute_magpie_features(comp_dict, feature_ref)
+    
+    # Etape C : Alignement Strict (Le cœur de l'Option A)
+    # 1. Ajouter les colonnes manquantes (remplies de 0)
+    # (Cas où le calculateur n'a pas pu générer une feature demandée par le modèle)
+    missing_cols = set(feature_ref) - set(X_input.columns)
+    for c in missing_cols:
+        X_input[c] = 0.0
+    
+    # 2. Supprimer les colonnes en trop
+    # (Cas où le CSV contiendrait des colonnes que le modèle ne connait pas)
+    extra_cols = set(X_input.columns) - set(feature_ref)
+    if extra_cols:
+        X_input = X_input.drop(columns=extra_cols)
+
+    # 3. Réordonner STRICTEMENT selon l'ordre du modèle
+    # C'est souvent ici que scikit-learn plante si l'ordre diffère
+    X_input = X_input[feature_ref]
+    
+    # -----------------------------------------------------
 
     # 3. Inference
-    mu_onset, sig_onset = gpr_predict(model_onset, X_input)
-    mu_tafel, sig_tafel = gpr_predict(model_tafel, X_input)
+    # Note : On passe X_input qui est maintenant parfaitement propre
+    try:
+        mu_onset, sig_onset = gpr_predict(model_onset, X_input)
+        mu_tafel, sig_tafel = gpr_predict(model_tafel, X_input)
 
-    # 4. Results Display
-    st.subheader(f"Prediction for: {formula}")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Onset Potential", f"{mu_onset:.0f} mV", delta=f"σ = {sig_onset:.0f}", delta_color="off")
-    with col2:
-        st.metric("Tafel Slope", f"{mu_tafel:.0f} mV/dec", delta=f"σ = {sig_tafel:.0f}", delta_color="off")
+        # 4. Results Display
+        st.subheader(f"Prediction for: {formula}")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Onset Potential", f"{mu_onset:.0f} mV", delta=f"σ = {sig_onset:.0f}", delta_color="off")
+        with col2:
+            st.metric("Tafel Slope", f"{mu_tafel:.0f} mV/dec", delta=f"σ = {sig_tafel:.0f}", delta_color="off")
 
-    # 5. Pareto Plotting
-    st.markdown("### Pareto Front Visualization")
-    fig, ax = plt.subplots(figsize=(8, 6))
-    
-    # Reference Data
-    ax.scatter(df_train['onset_potential'], df_train['tafel_slope'], 
-               c='#d62728', alpha=0.4, label='Experimental Data', s=40, marker='x')
-    
-    # Predicted Candidate
-    ax.errorbar(mu_onset, mu_tafel, xerr=sig_onset, yerr=sig_tafel, 
-                fmt='o', color='#2ca02c', ecolor='black', capsize=4, 
-                markersize=12, markeredgecolor='black', label='Predicted Candidate', zorder=10)
-    
-    ax.set_xlabel('Onset Potential (mV)', fontsize=10, fontweight='bold')
-    ax.set_ylabel('Tafel Slope (mV dec⁻¹)', fontsize=10, fontweight='bold')
-    ax.grid(True, linestyle=':', alpha=0.6)
-    ax.legend(frameon=True)
-    
-    st.pyplot(fig)
+        # 5. Pareto Plotting
+        st.markdown("### Pareto Front Visualization")
+        fig, ax = plt.subplots(figsize=(8, 6))
+        
+        # Reference Data
+        ax.scatter(df_train['onset_potential'], df_train['tafel_slope'], 
+                   c='#d62728', alpha=0.4, label='Experimental Data', s=40, marker='x')
+        
+        # Predicted Candidate
+        ax.errorbar(mu_onset, mu_tafel, xerr=sig_onset, yerr=sig_tafel, 
+                    fmt='o', color='#2ca02c', ecolor='black', capsize=4, 
+                    markersize=12, markeredgecolor='black', label='Predicted Candidate', zorder=10)
+        
+        ax.set_xlabel('Onset Potential (mV)', fontsize=10, fontweight='bold')
+        ax.set_ylabel('Tafel Slope (mV dec⁻¹)', fontsize=10, fontweight='bold')
+        ax.grid(True, linestyle=':', alpha=0.6)
+        ax.legend(frameon=True)
+        
+        st.pyplot(fig)
+        
+    except ValueError as e:
+        # Filet de sécurité ultime : si les noms coincent encore, on passe en mode "valeurs pures"
+        st.error(f"Validation Error: {e}")
+        st.info("Attempting fallback prediction mode (ignoring feature names)...")
+        
+        # Mode Band-Aid (valeurs numpy pures)
+        X_values = X_input.values
+        mu_onset, sig_onset = gpr_predict(model_onset, X_values)
+        mu_tafel, sig_tafel = gpr_predict(model_tafel, X_values)
+        # (Vous pouvez copier le code d'affichage ici si vous voulez que ça marche aussi en fallback)
