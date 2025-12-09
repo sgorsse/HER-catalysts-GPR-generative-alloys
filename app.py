@@ -166,47 +166,60 @@ if valid_comp and st.sidebar.button("Run Prediction"):
     comp_dict = {el: f for el, f in zip(selected_elems, fractions)}
     formula = "".join([f"{el}{f*100:.0f}" for el, f in comp_dict.items() if f > 0])
     
-    # 2. Feature Engineering & Robust Alignment (Option A)
+    # 2. Robust Feature Extraction Strategy
     # -----------------------------------------------------
+    feature_ref = None
     
-    # Etape A : Identifier la "Source de Vérité" pour les features
-    # On essaie de récupérer les noms enregistrés DANS le modèle.
-    try:
-        # Le modèle est un TransformedTargetRegressor, on accède au pipeline interne
+    # Essai 1 : Directement sur le pipeline
+    if hasattr(model_onset.regressor_, "feature_names_in_"):
         feature_ref = model_onset.regressor_.feature_names_in_
-    except AttributeError:
-        # Fallback : Si le modèle est trop vieux ou structure différente, on utilise le CSV
-        st.warning("Warning: Could not extract feature names from model. Using CSV headers instead.")
+    
+    # Essai 2 : Sur la première étape du pipeline (souvent l'Imputer)
+    if feature_ref is None:
+        try:
+            # On accède à la première étape du pipeline (index 0), qui est le transformer (index 1 du tuple)
+            first_step = model_onset.regressor_.steps[0][1]
+            if hasattr(first_step, "feature_names_in_"):
+                feature_ref = first_step.feature_names_in_
+        except Exception:
+            pass
+
+    # Essai 3 : Fallback CSV (Dernier recours)
+    if feature_ref is None:
+        st.warning("⚠️ Impossible de lire les features du modèle. Utilisation du CSV (risque d'erreur).")
         feature_ref = [c for c in df_train.columns if "MagpieData" in c]
 
-    # Etape B : Calculer les features brutes
-    # On demande au calculateur de générer ces features spécifiques
+    # --- Feature Calculation & Alignment ---
+    
+    # On calcule ce qu'on peut avec le dictionnaire disponible
     X_input = compute_magpie_features(comp_dict, feature_ref)
     
-    # Etape C : Alignement Strict (Le cœur de l'Option A)
-    # 1. Ajouter les colonnes manquantes (remplies de 0)
-    # (Cas où le calculateur n'a pas pu générer une feature demandée par le modèle)
+    # ALIGNEMENT STRICT : On s'assure que X_input a EXACTEMENT les colonnes de feature_ref
+    # 1. Ajout des manquantes (remplies par 0.0 si on n'a pas la donnée atomique)
     missing_cols = set(feature_ref) - set(X_input.columns)
-    for c in missing_cols:
-        X_input[c] = 0.0
-    
-    # 2. Supprimer les colonnes en trop
-    # (Cas où le CSV contiendrait des colonnes que le modèle ne connait pas)
+    if missing_cols:
+        # On utilise un dictionnaire pour l'ajout en masse (plus rapide et évite la fragmentation)
+        missing_data = {c: 0.0 for c in missing_cols}
+        X_input = pd.concat([X_input, pd.DataFrame(missing_data, index=X_input.index)], axis=1)
+
+    # 2. Suppression des superflues
     extra_cols = set(X_input.columns) - set(feature_ref)
     if extra_cols:
         X_input = X_input.drop(columns=extra_cols)
 
-    # 3. Réordonner STRICTEMENT selon l'ordre du modèle
-    # C'est souvent ici que scikit-learn plante si l'ordre diffère
+    # 3. Réorganisation (Crucial)
     X_input = X_input[feature_ref]
     
     # -----------------------------------------------------
 
-    # 3. Inference
-    # Note : On passe X_input qui est maintenant parfaitement propre
+    # 3. Inference "Sans Filet" (Numpy Array)
+    # On convertit en numpy pour désactiver la vérification des noms de colonnes par sklearn.
+    # Comme on a aligné l'ordre juste au-dessus, c'est sûr.
+    X_values = X_input.to_numpy()
+
     try:
-        mu_onset, sig_onset = gpr_predict(model_onset, X_input)
-        mu_tafel, sig_tafel = gpr_predict(model_tafel, X_input)
+        mu_onset, sig_onset = gpr_predict(model_onset, X_values)
+        mu_tafel, sig_tafel = gpr_predict(model_tafel, X_values)
 
         # 4. Results Display
         st.subheader(f"Prediction for: {formula}")
@@ -218,6 +231,7 @@ if valid_comp and st.sidebar.button("Run Prediction"):
 
         # 5. Pareto Plotting
         st.markdown("### Pareto Front Visualization")
+        #  - Triggering logical diagram
         fig, ax = plt.subplots(figsize=(8, 6))
         
         # Reference Data
@@ -236,13 +250,6 @@ if valid_comp and st.sidebar.button("Run Prediction"):
         
         st.pyplot(fig)
         
-    except ValueError as e:
-        # Filet de sécurité ultime : si les noms coincent encore, on passe en mode "valeurs pures"
-        st.error(f"Validation Error: {e}")
-        st.info("Attempting fallback prediction mode (ignoring feature names)...")
-        
-        # Mode Band-Aid (valeurs numpy pures)
-        X_values = X_input.values
-        mu_onset, sig_onset = gpr_predict(model_onset, X_values)
-        mu_tafel, sig_tafel = gpr_predict(model_tafel, X_values)
-        # (Vous pouvez copier le code d'affichage ici si vous voulez que ça marche aussi en fallback)
+    except Exception as e:
+        st.error(f"Prediction Error: {e}")
+        st.write("Debug info - Shape sent to model:", X_values.shape)
