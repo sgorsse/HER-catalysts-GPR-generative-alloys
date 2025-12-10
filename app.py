@@ -167,7 +167,7 @@ model_onset, model_tafel, atom_props, all_props, feature_cols, df_train = load_a
 # ==============================================================================
 # 4. USER INTERFACE
 # ==============================================================================
-st.title("⚗️ High-Performance HER Catalyst Predictor")
+st.title("⚗️ HER Catalyst Predictor")
 st.markdown("""
 **Generative design of electrocatalysts** assisted by AI (Gaussian Process Regression).
 Enter a chemical formula to predict its **Onset Potential** and **Tafel Slope**.
@@ -212,7 +212,7 @@ if st.button("🚀 Predict Performance", type="primary"):
         # 2. Check Sum = 100 (with slight tolerance for floats)
         elif not (99.0 <= total_sum <= 101.0):
             st.error(f"⚠️ Composition Error: The sum of concentrations is {total_sum:.1f}, but it must be 100.")
-            st.info("Please adjust your formula (e.g., instead of Pt50, use Pt100).")
+            st.info("Please adjust your formula.")
             
         else:
             # 3. Normalize and Calculate Features
