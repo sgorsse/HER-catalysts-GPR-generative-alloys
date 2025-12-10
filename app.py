@@ -176,7 +176,7 @@ Enter a chemical formula to predict its **Onset Potential** and **Tafel Slope**.
 # --- Sidebar ---
 with st.sidebar:
     st.header("Settings & Info")
-    st.info("Model calibrated on 180 experimental alloys (Small Data Regime).")
+    st.info("AI model calibrated on 180 experimental alloys (Small Data Regime).")
     
     st.markdown("### Supported Elements")
     st.write(", ".join(ALL_ELEMS))
