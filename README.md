@@ -12,7 +12,8 @@ This application uses Gaussian Process Regression (GPR) trained on an experiment
 ## 📂 Project Structure
 * `app.py`: The core of the Streamlit application (Interface & Calculation Engine).
 * `requirements.txt`: List of required Python libraries.
-* `data/training_data.csv`: Experimental data used to calibrate the physics engine.
+* `data/her_catalysts_dataset_v1.csv`: Experimental data used to train the AI models.
+* `data/dataset_metadata.csv`: A structured metadata dictionary defining the HER Catalysts dataset variables. It maps identifiers, experimental targets (Onset Potential, Tafel Slope), and physicochemical descriptors (Magpie features) to their scientific definitions to ensure documentation and reproducibility.
 * `models/model_*.joblib`: Pre-trained AI models.
 
 ## 🔬 Methodology
