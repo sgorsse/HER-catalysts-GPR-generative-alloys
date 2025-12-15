@@ -1,0 +1,52 @@
+{
+    "dataset_info": {
+        "description": "Metadata for the HER Catalysts Dataset describing identifiers, targets, and features.",
+        "language": "English (Scientific Neutral)"
+    },
+    "identifiers": {
+        "Reference": "DOI of the publication where the data were taken [10-67].",
+        "Formula": "A string representation of the alloy composition (e.g., 'Al10Co20Cr20Fe20Ni30'), providing a human-readable identifier.",
+        "Elemental_composition": "18 normalized and alphabetized nominal alloy composition, in atomic percent (Ag, Al, Au, Co, Cr, Cu, Fe, Ir, Mg, Mn, Mo, Ni, Pd, Pt, Rh, Ru, W, and Zn)."
+    },
+    "target_properties": {
+        "onset_potential": "The experimental HER onset potential, measured in millivolts (mV).",
+        "tafel_slope": "The experimental Tafel slope, measured in mV dec-1, representing the reaction kinetics."
+    },
+    "feature_space": {
+        "description": "The dataset includes the subset of Magpie statistics identified as the most information-rich descriptors via Mutual Information selection. The columns follow the naming convention MagpieData [statistic] [property].",
+        "statistics_definitions": {
+            "mean": "stoichiometry-weighted arithmetic mean.",
+            "minimum": "min over the element-wise property values.",
+            "maximum": "max over the element-wise property values.",
+            "range": "(max - min) over the element-wise property values.",
+            "avg_dev": "mean absolute deviation from the (weighted) mean.",
+            "mode": "most frequent value (with weights); in case of ties, the minimum among tied values is returned."
+        },
+        "atomic_properties_definitions": {
+            "Electronic_configuration": {
+                "description": "valence shell occupancy / vacancies",
+                "properties": {
+                    "NsValence": "number of filled s valence orbitals.",
+                    "NdValence": "number of filled d valence orbitals (often relevant for transition-metal chemistry).",
+                    "NsUnfilled": "number of unfilled s valence orbitals."
+                }
+            },
+            "Atomic_structure_and_thermodynamics": {
+                "description": "Fundamental structural and thermal properties",
+                "properties": {
+                    "Number": "atomic number Z (proxy for nuclear charge and periodic position).",
+                    "MeltingT": "elemental melting temperature (K), reflecting cohesive bonding strength at the element level.",
+                    "GSvolume_pa": "DFT-computed ground-state (T = 0 K) volume per atom (Å³ atom⁻¹), capturing steric/packing trends of elemental solids.",
+                    "CovalentRadius": "covalent radius (typically reported in pm in Magpie tables), linked to characteristic bond lengths and size mismatch in alloys."
+                }
+            },
+            "Chemical_nature": {
+                "description": "Chemical bonding and classification properties",
+                "properties": {
+                    "Electronegativity": "Pauling electronegativity, describing electron-attracting tendency and influencing charge transfer.",
+                    "MendeleevNumber": "an ordering index of elements on the periodic table used to group chemically similar elements (in Magpie, defined as a position index 'counting columnwise from H')."
+                }
+            }
+        }
+    }
+}
