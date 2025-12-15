@@ -132,9 +132,9 @@ def calculate_magpie_lite_single(comp_dict, atom_props_df, props_list, feature_c
 def load_assets():
     try:
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        path_data = os.path.join(current_dir, 'data', 'training_data.csv')
-        path_model_onset = os.path.join(current_dir, 'models', 'model_onset.joblib')
-        path_model_tafel = os.path.join(current_dir, 'models', 'model_tafel.joblib')
+        path_data = os.path.join(current_dir, 'data', 'her_catalysts_dataset_v1.csv')
+        path_model_onset = os.path.join(current_dir, 'models', 'model_onset_v1.joblib')
+        path_model_tafel = os.path.join(current_dir, 'models', 'model_tafel_v1.joblib')
 
         if not os.path.exists(path_data): return None, None, None, None, None, None
         df_train = pd.read_csv(path_data)
